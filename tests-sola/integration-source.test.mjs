@@ -1,0 +1,6 @@
+import {test} from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import {preferenceKeys} from '../core/sola-config-policy.mjs';
+const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
+test('startup restores before native settings merge',()=>{const t=read('index.js');assert.match(t,/await restoreProtectedConfig\(\);[\s\S]*?if \(!extension_settings\.vectfox\)/);});
+test('client and standalone server share identical policy',()=>{assert.equal(read('core/sola-config-policy.mjs'),read('server-plugin/policy.mjs'));});
+test('preference keys correspond to pinned defaults and exclude state',()=>{const t=read('index.js').split('const defaultSettings = {')[1].split('\n};')[0];const keys=[...t.matchAll(/^    (\w+):/gm)].map(x=>x[1]);for(const k of preferenceKeys)assert.ok(k==='cleaning'||keys.includes(k),k);for(const k of ['collections','chat_lock_index','eventbase_vectorization_tip','superadmin'])assert.ok(!preferenceKeys.includes(k));});
+test('UI and auxiliary editors call guarded save',()=>{for(const p of ['ui/ui-manager.js','ui/text-cleaning-manager.js','ui/content-vectorizer.js'])assert.match(read(p),/saveGuardedSettings as saveSettingsDebounced/);});

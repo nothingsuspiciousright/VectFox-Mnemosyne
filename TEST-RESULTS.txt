@@ -1,0 +1,128 @@
+TAP version 13
+# Subtest: client restores before UI and keeps collection metadata
+ok 1 - client restores before UI and keeps collection metadata
+  ---
+  duration_ms: 14.660971
+  type: 'test'
+  ...
+# Subtest: client cannot overwrite server snapshot after failed GET
+ok 2 - client cannot overwrite server snapshot after failed GET
+  ---
+  duration_ms: 405.1111
+  type: 'test'
+  ...
+# Subtest: client saves edits with revision, not credential fields
+ok 3 - client saves edits with revision, not credential fields
+  ---
+  duration_ms: 403.835401
+  type: 'test'
+  ...
+# Subtest: client blocks further writes after revision conflict
+ok 4 - client blocks further writes after revision conflict
+  ---
+  duration_ms: 811.014815
+  type: 'test'
+  ...
+# Subtest: client seeds a complete existing profile on first use
+ok 5 - client seeds a complete existing profile on first use
+  ---
+  duration_ms: 23.808829
+  type: 'test'
+  ...
+# Subtest: client attempts to repair a recovered previous snapshot
+ok 6 - client attempts to repair a recovered previous snapshot
+  ---
+  duration_ms: 23.793805
+  type: 'test'
+  ...
+# Subtest: startup restores before native settings merge
+ok 7 - startup restores before native settings merge
+  ---
+  duration_ms: 2.303942
+  type: 'test'
+  ...
+# Subtest: client and standalone server share identical policy
+ok 8 - client and standalone server share identical policy
+  ---
+  duration_ms: 0.240514
+  type: 'test'
+  ...
+# Subtest: preference keys correspond to pinned defaults and exclude state
+ok 9 - preference keys correspond to pinned defaults and exclude state
+  ---
+  duration_ms: 0.626217
+  type: 'test'
+  ...
+# Subtest: UI and auxiliary editors call guarded save
+ok 10 - UI and auxiliary editors call guarded save
+  ---
+  duration_ms: 1.807242
+  type: 'test'
+  ...
+# [Sola VF Guard] Ready
+# Subtest: 146 settings migrate and survive a 6-field reset
+ok 11 - 146 settings migrate and survive a 6-field reset
+  ---
+  duration_ms: 13.700018
+  type: 'test'
+  ...
+# Subtest: intentional model and endpoint changes are accepted
+ok 12 - intentional model and endpoint changes are accepted
+  ---
+  duration_ms: 5.099959
+  type: 'test'
+  ...
+# Subtest: stale writer cannot overwrite newer configuration
+ok 13 - stale writer cannot overwrite newer configuration
+  ---
+  duration_ms: 4.795018
+  type: 'test'
+  ...
+# Subtest: corrupt primary falls back to previous; repair keeps backup
+ok 14 - corrupt primary falls back to previous; repair keeps backup
+  ---
+  duration_ms: 5.913709
+  type: 'test'
+  ...
+# Subtest: both corrupted copies refuse to overwrite
+ok 15 - both corrupted copies refuse to overwrite
+  ---
+  duration_ms: 2.749826
+  type: 'test'
+  ...
+# Subtest: known credential fields and runtime metadata are excluded
+ok 16 - known credential fields and runtime metadata are excluded
+  ---
+  duration_ms: 3.795316
+  type: 'test'
+  ...
+# Subtest: incomplete endpoint edit leaves previous file untouched
+ok 17 - incomplete endpoint edit leaves previous file untouched
+  ---
+  duration_ms: 3.918568
+  type: 'test'
+  ...
+# Subtest: plugin routes isolate user directory and reject stale writes
+ok 18 - plugin routes isolate user directory and reject stale writes
+  ---
+  duration_ms: 3.730519
+  type: 'test'
+  ...
+# Subtest: real Qdrant cloud field is checked, inherited embedding URL is allowed
+ok 19 - real Qdrant cloud field is checked, inherited embedding URL is allowed
+  ---
+  duration_ms: 2.345445
+  type: 'test'
+  ...
+1..19
+# tests 19
+# suites 0
+# pass 19
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1740.336939
+
+Node --check: 149 JS/MJS files; 0 failures (including updated client test).
+Upstream dependency-based tests and live SillyTavern integration were not run.

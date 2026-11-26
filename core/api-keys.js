@@ -194,6 +194,9 @@ export function getCustomApiKey(settings) {
  */
 export const getVllmApiKey = getCustomApiKey;
 
+// Embedding-side masked presence only; never used as a bearer token.
+export function getEmbeddingVllmApiKey() { return _readSecretValue(SECRET_KEYS.VLLM); }
+
 /**
  * Resolve the Qdrant API key presence indicator.
  *

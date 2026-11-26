@@ -1,16 +1,18 @@
 {
-    "display_name": "VectFox",
+    "display_name": "VectFox — Mnemosyne Edition",
     "loading_order": 101,
     "requires": [],
-    "optional": ["embeddings"],
+    "optional": [
+        "embeddings"
+    ],
     "generate_interceptor": "vectfox_rearrangeChat",
     "js": "index.js",
-    "css": "vectfox.css",
-    "author": "Kritbalde",
-    "version": "3.6.17",
-    "homePage": "https://github.com/KritBlade/VectFox",
-    "description": "Advanced RAG system with temporal decay, importance weighting, and intelligent chunking",
-    "auto_update": true,
+    "css": "vectfox-sola-v2.css",
+    "author": "nothingsuspiciousright",
+    "version": "3.6.18",
+    "homePage": "https://github.com/nothingsuspiciousright/Sola-VectFox",
+    "description": "VectFox 3.6.17 fork: independent protected preferences, split vLLM slots, scoped mobile UI and optional Mnemosyne extraction preset.",
+    "auto_update": false,
     "hooks": {
         "update": "onUpdate"
     }

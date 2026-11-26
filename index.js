@@ -1,3 +1,4 @@
+import { restoreProtectedConfig } from './core/sola-config-guard.js'; // SOLA_CONFIG_GUARD
 /**
  * ============================================================================
  * VECTFOX - ADVANCED RAG SYSTEM
@@ -480,7 +481,7 @@ async function onVectorizeAllClick() {
  */
 async function onPurgeClick() {
     const confirmed = confirm(
-        'WARNING: This will delete ALL vector data and reset VectFox settings.\n\n' +
+        'WARNING: This will delete ALL vector data and reset native VectFox settings. The independent protected preferences are retained and can be restored on restart.\n\n' +
         'This cannot be undone. Continue?'
     );
 
@@ -567,6 +568,8 @@ function onRunDiagnosticsClick() {
  */
 jQuery(async () => {
     log.lifecycle('VectFox: Initializing...');
+
+    await restoreProtectedConfig();
 
     // Load saved settings
     if (!extension_settings.vectfox) {

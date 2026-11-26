@@ -10,7 +10,7 @@
  * ============================================================================
  */
 
-import { saveSettingsDebounced } from '../../../../../script.js';
+import { saveGuardedSettings as saveSettingsDebounced } from '../core/sola-config-guard.js';
 import {
     BUILTIN_PATTERNS,
     CLEANING_PRESETS,

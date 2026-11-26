@@ -10,12 +10,14 @@
  * ============================================================================
  */
 
-import { saveSettingsDebounced, getCurrentChatId, eventSource, event_types, getRequestHeaders } from '../../../../../script.js';
+import { getCurrentChatId, eventSource, event_types, getRequestHeaders } from '../../../../../script.js';
+import { saveGuardedSettings as saveSettingsDebounced, activateConfigGuard } from '../core/sola-config-guard.js'; // SOLA_CONFIG_GUARD_V2
 import { extension_settings, openThirdPartyExtensionMenu, getContext } from '../../../../extensions.js';
-import { writeSecret, deleteSecret, SECRET_KEYS, secret_state, readSecretState } from '../../../../secrets.js';
+import { writeSecret, deleteSecret, SECRET_KEYS, readSecretState } from '../../../../secrets.js';
 import {
     getOpenRouterApiKey,
     getCustomApiKey,
+    getEmbeddingVllmApiKey,
     getQdrantApiKey,
     fetchQdrantApiKeyPresence,
 } from '../core/api-keys.js';
@@ -83,7 +85,7 @@ export function renderSettings(containerId, settings, callbacks) {
         <div id="VectFox_settings">
             <div class="inline-drawer">
                 <div class="inline-drawer-toggle inline-drawer-header">
-                    <b>VectFox - Advanced RAG</b>
+                    <b>Sola VectFox — Mnemosyne Edition</b>
                     <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
                 </div>
                 <div class="inline-drawer-content">
@@ -758,7 +760,7 @@ export function renderSettings(containerId, settings, callbacks) {
                                 <label for="VectFox_reformat_vllm_url"><small>vLLM Base URL</small></label>
                                 <input type="text" id="VectFox_reformat_vllm_url" class="vectfox-input"
                                     placeholder="(empty → inherit summarize URL)" />
-                                <small class="VectFox_hint">API key is shared with Embedding/Summarize/AgentMode — set it in Core → LLM Summarization.</small>
+                                <small class="VectFox_hint">Uses the chat API key shared with Summarization/AgentMode, not the embedding key. Set it in Core → LLM Summarization.</small>
                             </div>
 
                             <label for="VectFox_reformat_batch_chars">
@@ -1557,6 +1559,7 @@ export function renderSettings(containerId, settings, callbacks) {
 
     // Bind all events
     bindSettingsEvents(settings, callbacks);
+    activateConfigGuard(settings);
 
     // Initialize collapsible cards
     initializeCollapsibleCards();
@@ -2465,7 +2468,7 @@ async function clearSharedApiKey({ slots, changedEvent, label, getCurrent, share
     const warn = sharedWithST
         ? `\n\nThis is the same secret slot SillyTavern itself uses, so deleting it also affects your main chat if that's set to ${label}.`
         : '';
-    if (!confirm(`Delete the saved ${label} API key?\n\nIt is shared across Embedding, Summarization, and AgentMode.${warn}\n\nThis cannot be undone.`)) {
+    if (!confirm(`Delete the saved ${label} API key?\n\nThis removes the active key from the selected SillyTavern secret slot(s). Other features using the same slot may be affected.${warn}\n\nThis cannot be undone.`)) {
         return;
     }
     const failed = [];
@@ -2978,44 +2981,24 @@ function bindSettingsEvents(settings, callbacks) {
             const masked = savedKey.length > 4
                 ? '*'.repeat(Math.min(savedKey.length - 4, 8)) + savedKey.slice(-4)
                 : '*'.repeat(savedKey.length);
-            $('#VectFox_summarize_vllm_apikey').attr('placeholder', `Key saved: ${masked} (shared with Embedding + AgentMode)`);
+            $('#VectFox_summarize_vllm_apikey').attr('placeholder', `Key saved: ${masked} (chat key)`);
         } else {
-            $('#VectFox_summarize_vllm_apikey').attr('placeholder', 'Paste vLLM / Custom OpenAI-compatible key (shared with Embedding + AgentMode)');
+            $('#VectFox_summarize_vllm_apikey').attr('placeholder', 'Paste vLLM / Custom OpenAI-compatible key (chat key)');
         }
     };
     updateSummarizeVllmKeyDisplay();
     $(document).on('vectfox:vllm-key-changed', updateSummarizeVllmKeyDisplay);
     $('#VectFox_summarize_vllm_apikey').on('change', async function() {
         const value = String($(this).val()).trim();
-        if (value) {
-            // Dual-write: CUSTOM (chat-side proxy) + VLLM (embedding-side
-            // proxy). One key, both slots. Either failure is non-fatal — toast
-            // the user which side didn't land so they can manually re-enter
-            // via ST's UI if needed.
-            const errors = [];
-            try {
-                await writeSecret(SECRET_KEYS.CUSTOM, value);
-            } catch (err) {
-                log.error('[VectFox] writeSecret(SECRET_KEYS.CUSTOM) failed:', err);
-                errors.push('chat-side (CUSTOM)');
-            }
-            try {
-                await writeSecret(SECRET_KEYS.VLLM, value);
-            } catch (err) {
-                log.error('[VectFox] writeSecret(SECRET_KEYS.VLLM) failed:', err);
-                errors.push('embedding-side (VLLM)');
-            }
+        if (!value) return;
+        try {
+            await writeSecret(SECRET_KEYS.CUSTOM, value);
             await readSecretState();
-            if (errors.length === 0) {
-                toastr.success('vLLM API key saved (shared across embedding/summarize/agentic)');
-            } else if (errors.length === 2) {
-                toastr.error('Failed to save vLLM key to either slot — see console');
-                return;
-            } else {
-                toastr.warning(`vLLM key partially saved — ${errors.join(', ')} write failed. See console.`);
-            }
             $(this).val('');
             $(document).trigger('vectfox:vllm-key-changed');
+            toastr.success('CUSTOM API key saved separately');
+        } catch (err) {
+            toastr.error('Could not save API key');
         }
     });
 
@@ -3036,9 +3019,9 @@ function bindSettingsEvents(settings, callbacks) {
             const masked = savedKey.length > 4
                 ? '*'.repeat(Math.min(savedKey.length - 4, 8)) + savedKey.slice(-4)
                 : '*'.repeat(savedKey.length);
-            $('#VectFox_summarize_openrouter_apikey').attr('placeholder', `Key saved: ${masked} (shared with Embedding + AgentMode)`);
+            $('#VectFox_summarize_openrouter_apikey').attr('placeholder', `Key saved: ${masked} (chat key)`);
         } else {
-            $('#VectFox_summarize_openrouter_apikey').attr('placeholder', 'Paste OpenRouter key (shared with Embedding + AgentMode)');
+            $('#VectFox_summarize_openrouter_apikey').attr('placeholder', 'Paste OpenRouter key (chat key)');
         }
     };
     updateSummarizeORKeyDisplay();
@@ -3106,9 +3089,9 @@ function bindSettingsEvents(settings, callbacks) {
             const masked = savedKey.length > 4
                 ? '*'.repeat(Math.min(savedKey.length - 4, 8)) + savedKey.slice(-4)
                 : '*'.repeat(savedKey.length);
-            $('#VectFox_agentic_openrouter_apikey').attr('placeholder', `Key saved: ${masked} (shared with Embedding + Summarize)`);
+            $('#VectFox_agentic_openrouter_apikey').attr('placeholder', `Key saved: ${masked} (chat key)`);
         } else {
-            $('#VectFox_agentic_openrouter_apikey').attr('placeholder', 'Paste OpenRouter key (shared with Embedding + Summarize)');
+            $('#VectFox_agentic_openrouter_apikey').attr('placeholder', 'Paste OpenRouter key (chat key)');
         }
     };
     updateAgenticORKeyDisplay();
@@ -3149,41 +3132,24 @@ function bindSettingsEvents(settings, callbacks) {
             const masked = savedKey.length > 4
                 ? '*'.repeat(Math.min(savedKey.length - 4, 8)) + savedKey.slice(-4)
                 : '*'.repeat(savedKey.length);
-            $('#VectFox_agentic_vllm_apikey').attr('placeholder', `Key saved: ${masked} (shared with Embedding + Summarize)`);
+            $('#VectFox_agentic_vllm_apikey').attr('placeholder', `Key saved: ${masked} (chat key)`);
         } else {
-            $('#VectFox_agentic_vllm_apikey').attr('placeholder', 'Paste vLLM / Custom OpenAI-compatible key (shared with Embedding + Summarize)');
+            $('#VectFox_agentic_vllm_apikey').attr('placeholder', 'Paste vLLM / Custom OpenAI-compatible key (chat key)');
         }
     };
     updateAgenticVllmKeyDisplay();
     $(document).on('vectfox:vllm-key-changed', updateAgenticVllmKeyDisplay);
     $('#VectFox_agentic_vllm_apikey').on('change', async function() {
         const value = String($(this).val()).trim();
-        if (value) {
-            // Dual-write: same pattern as the summarize input above.
-            const errors = [];
-            try {
-                await writeSecret(SECRET_KEYS.CUSTOM, value);
-            } catch (err) {
-                log.error('[VectFox] writeSecret(SECRET_KEYS.CUSTOM) failed:', err);
-                errors.push('chat-side (CUSTOM)');
-            }
-            try {
-                await writeSecret(SECRET_KEYS.VLLM, value);
-            } catch (err) {
-                log.error('[VectFox] writeSecret(SECRET_KEYS.VLLM) failed:', err);
-                errors.push('embedding-side (VLLM)');
-            }
+        if (!value) return;
+        try {
+            await writeSecret(SECRET_KEYS.CUSTOM, value);
             await readSecretState();
-            if (errors.length === 0) {
-                toastr.success('vLLM API key saved (shared across embedding/summarize/agentic)');
-            } else if (errors.length === 2) {
-                toastr.error('Failed to save vLLM key to either slot — see console');
-                return;
-            } else {
-                toastr.warning(`vLLM key partially saved — ${errors.join(', ')} write failed. See console.`);
-            }
             $(this).val('');
             $(document).trigger('vectfox:vllm-key-changed');
+            toastr.success('CUSTOM API key saved separately');
+        } catch (err) {
+            toastr.error('Could not save API key');
         }
     });
 
@@ -3206,8 +3172,22 @@ function bindSettingsEvents(settings, callbacks) {
     };
     ['#VectFox_openrouter_apikey_clear', '#VectFox_summarize_openrouter_apikey_clear', '#VectFox_agentic_openrouter_apikey_clear']
         .forEach(sel => $(sel).on('click', () => clearSharedApiKey(_openRouterClearOpts)));
-    ['#VectFox_vllm_api_key_clear', '#VectFox_summarize_vllm_apikey_clear', '#VectFox_agentic_vllm_apikey_clear']
-        .forEach(sel => $(sel).on('click', () => clearSharedApiKey(_vllmClearOpts)));
+    
+$('#VectFox_vllm_api_key_clear').on('click', () =>
+    clearSharedApiKey({
+        ..._vllmClearOpts,
+        slots: [SECRET_KEYS.VLLM],
+        label: 'Embedding',
+        getCurrent: () => getEmbeddingVllmApiKey()
+    })
+);
+
+$('#VectFox_summarize_vllm_apikey_clear, #VectFox_agentic_vllm_apikey_clear')
+    .on('click', () => clearSharedApiKey({
+        ..._vllmClearOpts,
+        slots: [SECRET_KEYS.CUSTOM],
+        label: 'Chat completion'
+    }));
 
     // Sliders — chat depth, candidates, max queries
     const bindAgenticSlider = (inputId, valSpanId, settingKey, defaultVal) => {
@@ -4939,50 +4919,24 @@ function bindSettingsEvents(settings, callbacks) {
             saveSettingsDebounced();
         });
 
-    // vLLM API key (embedding input) — dual-write to SECRET_KEYS.CUSTOM
-    // (chat-side proxy) + SECRET_KEYS.VLLM (embedding-side proxy). Same
-    // pattern as the Summarize and AgentMode inputs above. One shared key,
-    // both ST slots. See core/api-keys.js header for the full rationale.
+    // Embedding uses only the native VLLM slot; chat uses CUSTOM.
     const updateVllmKeyDisplay = () => {
-        const savedKey = getCustomApiKey(settings);
-        if (savedKey) {
-            const masked = savedKey.length > 4
-                ? '*'.repeat(Math.min(savedKey.length - 4, 8)) + savedKey.slice(-4)
-                : '*'.repeat(savedKey.length);
-            $('#VectFox_vllm_api_key').attr('placeholder', `Key saved: ${masked} (shared with Summarize + AgentMode)`);
-        } else {
-            $('#VectFox_vllm_api_key').attr('placeholder', 'Leave blank for local / no-auth (shared with Summarize + AgentMode)');
-        }
+        $('#VectFox_vllm_api_key').attr('placeholder', getEmbeddingVllmApiKey()
+            ? 'Embedding key saved separately' : 'Paste embedding API key');
     };
     updateVllmKeyDisplay();
     $(document).on('vectfox:vllm-key-changed', updateVllmKeyDisplay);
     $('#VectFox_vllm_api_key').on('change', async function() {
         const value = String($(this).val()).trim();
-        if (value) {
-            const errors = [];
-            try {
-                await writeSecret(SECRET_KEYS.CUSTOM, value);
-            } catch (err) {
-                log.error('[VectFox] writeSecret(SECRET_KEYS.CUSTOM) failed:', err);
-                errors.push('chat-side (CUSTOM)');
-            }
-            try {
-                await writeSecret(SECRET_KEYS.VLLM, value);
-            } catch (err) {
-                log.error('[VectFox] writeSecret(SECRET_KEYS.VLLM) failed:', err);
-                errors.push('embedding-side (VLLM)');
-            }
+        if (!value) return;
+        try {
+            await writeSecret(SECRET_KEYS.VLLM, value);
             await readSecretState();
-            if (errors.length === 0) {
-                toastr.success('vLLM API key saved (shared across embedding/summarize/agentic)');
-            } else if (errors.length === 2) {
-                toastr.error('Failed to save vLLM key to either slot — see console');
-                return;
-            } else {
-                toastr.warning(`vLLM key partially saved — ${errors.join(', ')} write failed. See console.`);
-            }
             $(this).val('');
             $(document).trigger('vectfox:vllm-key-changed');
+            toastr.success('VLLM API key saved separately');
+        } catch (err) {
+            toastr.error('Could not save API key');
         }
     });
 
@@ -5952,3 +5906,5 @@ async function showQdrantDimensionFixDialog() {
 export function hideDiagnosticsResults() {
     $('#VectFox_diagnostics_output').hide();
 }
+
+// VF_SEPARATE_KEYS_FIX
